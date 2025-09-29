@@ -12,39 +12,53 @@ struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
 
     @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
+        sortDescriptors: [NSSortDescriptor(keyPath: \MoodEntry.id, ascending: true)],
         animation: .default)
-    private var items: FetchedResults<Item>
+    private var items: FetchedResults<MoodEntry>
 
     var body: some View {
-        NavigationView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+        TabView {
+            // Home tab
+            HomeView()
+                .tabItem {
+                    Label("Home", systemImage: "house")
+                }
+
+            // Entries tab (existing Core Data list)
+            NavigationView {
+                List {
+                    ForEach(items) { item in
+                        if let timestamp = item.timestamp {
+                            NavigationLink {
+                                Text("Item at \(timestamp, formatter: itemFormatter)")
+                            } label: {
+                                Text(timestamp, formatter: itemFormatter)
+                            }
+                        }
+                    }
+                    .onDelete(perform: deleteItems)
+                }
+                .toolbar {
+                    ToolbarItem(placement: .navigationBarTrailing) {
+                        EditButton()
+                    }
+                    ToolbarItem {
+                        Button(action: addItem) {
+                            Label("Add Item", systemImage: "plus")
+                        }
                     }
                 }
-                .onDelete(perform: deleteItems)
+                Text("Select an item")
             }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
+            .tabItem {
+                Label("Map", systemImage: "map")
             }
-            Text("Select an item")
         }
     }
 
     private func addItem() {
         withAnimation {
-            let newItem = Item(context: viewContext)
+            let newItem = MoodEntry(context: viewContext)
             newItem.timestamp = Date()
 
             do {

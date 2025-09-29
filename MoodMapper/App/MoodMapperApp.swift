@@ -8,6 +8,7 @@
 import SwiftUI
 import CoreData
 import FirebaseCore
+import CoreLocation
 
 class AppDelegate: NSObject, UIApplicationDelegate {
   func application(_ application: UIApplication,
@@ -23,12 +24,16 @@ struct MoodMapperApp: App {
     let persistenceController = PersistenceController.shared
     // register app delegate for Firebase setup
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    @StateObject private var locationService = LocationService()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                .environmentObject(locationService)
+                .onAppear {
+                    locationService.requestWhenInUseAuthorization()
+                }
         }
     }
 }
-
