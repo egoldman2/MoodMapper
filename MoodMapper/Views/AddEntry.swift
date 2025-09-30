@@ -16,6 +16,7 @@ struct AddEntry: View {
         var note: String
         var latitude: Double? = nil
         var longitude: Double? = nil
+        var locationName: String? = nil
     }
 
     @Environment(\.dismiss) private var dismiss
@@ -27,6 +28,7 @@ struct AddEntry: View {
     @State private var date: Date = Date()
     @State private var note: String = ""
     @State private var today: Bool = true
+    @State private var locationName: String = ""
     @FocusState private var noteFocused: Bool
     @EnvironmentObject private var locationService: LocationService
     @State private var includeLocation: Bool = true
@@ -50,10 +52,12 @@ struct AddEntry: View {
                     }
                     Picker("Mood", selection: $mood) {
                         ForEach(1...5, id: \.self) { value in
-                            Text(moodEmojis[value - 1]).tag(value)
+                            Text(moodEmojis[value - 1])
+                                .tag(value)
                         }
                     }
                     .pickerStyle(.segmented)
+                    .controlSize(.large)
                 }
 
                 Section("When") {
@@ -67,6 +71,9 @@ struct AddEntry: View {
                 }
 
                 Section("Location") {
+                    
+                    TextField("Location Name", text: $locationName)
+                    
                     Toggle("Attach current location", isOn: $includeLocation)
                         .onChange(of: includeLocation) { _, newValue in
                             if newValue {
@@ -128,7 +135,8 @@ struct AddEntry: View {
             date: date,
             note: trimmed,
             latitude: coord?.latitude,
-            longitude: coord?.longitude
+            longitude: coord?.longitude,
+            locationName: locationName
         )
         onSave?(entry)
         dismiss()
