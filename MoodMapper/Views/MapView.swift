@@ -21,21 +21,54 @@ struct MapView: View {
     private var entries: FetchedResults<MoodEntry>
 
     @State private var position: MapCameraPosition = .automatic
+    @State private var selectedEntry: MoodEntry?
 
     var body: some View {
-        VStack {
+        ZStack {
+            
             Map(position: $position) {
                 UserAnnotation()
                 ForEach(entries) { entry in
                     if let coord = coordinate(for: entry) {
                         Annotation("", coordinate: coord) {
-                            MoodMarkerView(emoji: Utils.emoji(for: entry.score), tint: Utils.emojiColour(for: entry.score))
+                            Button {
+                                selectedEntry = entry
+                            } label: {
+                                MoodMarkerView(
+                                    emoji: Utils.emoji(for: entry.score),
+                                    tint:  Utils.emojiColour(for: entry.score),
+                                    locationName: entry.placename ?? "Unknown",
+                                    date: entry.timestamp
+                                )
+                            }
                         }
                     }
                 }
             }
             .task { setInitialCamera() }
+            
+            
+            if let entry = selectedEntry {
+                VStack {
+                    MoodEntryDetailView(entry: entry)
+                        .shadow(radius: 8)
+                    
+                    Button {
+                        withAnimation(.snappy) { selectedEntry = nil }
+                    } label: {
+                        Label("Close", systemImage: "xmark.circle.fill")
+                            .font(.headline)
+                    }
+                    .buttonStyle(.glass)
+                    .padding(.horizontal, 32)
+                    .padding(.vertical, 16)
+
+
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
+        .animation(.snappy, value: selectedEntry)
     }
 
     private func setInitialCamera() {

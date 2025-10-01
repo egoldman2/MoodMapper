@@ -11,9 +11,9 @@ struct MoodMarkerView: View {
     let emoji: String
     var tint: Color = .blue
     var size: CGFloat = 60
-    
     var locationName: String? = nil
     var date: Date? = nil
+    var isInteractive: Bool = true
     var onMoreInfo: (() -> Void)? = nil
     
     @State private var isCalloutPresented: Bool = false
@@ -32,37 +32,6 @@ struct MoodMarkerView: View {
                 .glassEffect(.regular.tint(tint.opacity(0.3)).interactive(), in: .circle)
             
         }
-        .onTapGesture {
-            withAnimation(.spring(response: 0.25, dampingFraction: 0.8)) {
-                isCalloutPresented.toggle()
-            }
-        }
-        .popover(isPresented: $isCalloutPresented, attachmentAnchor: .rect(.bounds), arrowEdge: .bottom) {
-            VStack(alignment: .center, spacing: 8) {
-                if let locationName {
-                    Text(locationName)
-                        .font(.headline)
-                }
-                if let date {
-                    Text(date, format: .dateTime.year().month().day().hour().minute())
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-                if onMoreInfo != nil {
-                    Button {
-                        isCalloutPresented = false
-                        onMoreInfo?()
-                    } label: {
-                        Label("View more", systemImage: "chevron.right.circle.fill")
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.small)
-                }
-            }
-            .padding(12)
-            .presentationCompactAdaptation(.popover)
-        }
-        .shadow(radius: 2)
     }
 }
 

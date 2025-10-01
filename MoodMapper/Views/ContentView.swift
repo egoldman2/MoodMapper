@@ -15,19 +15,31 @@ struct ContentView: View {
         sortDescriptors: [NSSortDescriptor(keyPath: \MoodEntry.id, ascending: true)],
         animation: .default)
     private var items: FetchedResults<MoodEntry>
+    @State private var showHomeOverlay = false
 
     var body: some View {
-        TabView {
-            // Home tab
-            HomeView()
-                .tabItem {
-                    Label("Home", systemImage: "house")
-                }
+        NavigationStack {
+            ZStack {
+                MapView()
+                    .ignoresSafeArea()
 
-            // Entries tab (existing Core Data list)
-            MapView()
-            .tabItem {
-                Label("Map", systemImage: "map")
+                if showHomeOverlay {
+                    HomeView()
+                        .scrollContentBackground(.hidden)
+                        .background(.ultraThinMaterial)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                        .zIndex(1)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
+                        withAnimation(.snappy) { showHomeOverlay.toggle() }
+                    } label: {
+                        Image(systemName: showHomeOverlay ? "house.fill" : "house")
+                        .imageScale(.large)
+                    }
+                }
             }
         }
     }
@@ -62,3 +74,4 @@ private let itemFormatter: DateFormatter = {
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
         .environmentObject(LocationService())
 }
+

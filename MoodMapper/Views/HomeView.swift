@@ -25,8 +25,12 @@ struct HomeView: View {
                     emptyState
                 } else {
                     List {
-                        ForEach(items) { item in
-                            EntryRow(item: item)
+                        ForEach(items, id: \.objectID) { item in
+                            NavigationLink {
+                                MoodEntryDetailView(entry: item)
+                            } label : {
+                                EntryRow(item: item)
+                            }
                         }
                         .onDelete(perform: delete)
                     }
@@ -35,14 +39,12 @@ struct HomeView: View {
             }
             .navigationTitle("Mood Mapper")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    EditButton().disabled(items.isEmpty)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .bottomBar) {
                     Button {
                         showingAdd = true
                     } label: {
                         Image(systemName: "plus")
+                            .imageScale(.large)
                     }
                 }
             }
@@ -53,6 +55,7 @@ struct HomeView: View {
                     item.score = Int16(new.mood)
                     item.timestamp = new.date
                     item.note = new.note
+                    item.placename = new.locationName
                     // Record location only if attributes exist in the model
                     let attributes = item.entity.attributesByName
                     if attributes.keys.contains("latitude") {
@@ -60,6 +63,9 @@ struct HomeView: View {
                     }
                     if attributes.keys.contains("longitude") {
                         item.setValue(new.longitude, forKey: "longitude")
+                    }
+                    if attributes.keys.contains("placename") {
+                        item.setValue(new.locationName, forKey: "placename")
                     }
                     try? viewContext.save()
                 }
@@ -102,7 +108,7 @@ private struct EntryRow: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            Text(emoji(for: Int(item.score)))
+            Text(Utils.emoji(for: item.score))
                 .font(.largeTitle)
                 .frame(width: 44, height: 44)
 
@@ -126,12 +132,6 @@ private struct EntryRow: View {
             }
         }
         .padding(.vertical, 6)
-    }
-
-    private func emoji(for mood: Int) -> String {
-        let emojis = ["😞", "😕", "😐", "🙂", "😄"]
-        let idx = max(0, min(4, mood - 1))
-        return emojis[idx]
     }
 }
 
