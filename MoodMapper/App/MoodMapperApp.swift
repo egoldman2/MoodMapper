@@ -8,14 +8,22 @@
 import SwiftUI
 import CoreData
 import FirebaseCore
+import FirebaseAuth
 import CoreLocation
 
 class AppDelegate: NSObject, UIApplicationDelegate {
-  func application(_ application: UIApplication,
-                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-    FirebaseApp.configure()
+  func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+      FirebaseApp.configure()
+      FirebaseConfiguration.shared.setLoggerLevel(.debug)
+      Auth.auth().signInAnonymously { result, error in
+          if let error = error {
+              print("Anon auth failed:", error)
+          } else {
+              print("Anon auth UID:", result?.user.uid ?? "unknown")
+          }
+      }
 
-    return true
+      return true
   }
 }
 
@@ -24,7 +32,14 @@ struct MoodMapperApp: App {
     let persistenceController = PersistenceController.shared
     // register app delegate for Firebase setup
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
+    
     @StateObject private var locationService = LocationService()
+    @StateObject private var syncService: FirestoreSyncService
+    
+    init() {
+        let ctx = PersistenceController.shared.container.viewContext
+        _syncService = StateObject(wrappedValue: FirestoreSyncService(context: ctx))
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -33,6 +48,7 @@ struct MoodMapperApp: App {
                 .environmentObject(locationService)
                 .onAppear {
                     locationService.requestWhenInUseAuthorization()
+                    syncService.start()
                 }
         }
     }
