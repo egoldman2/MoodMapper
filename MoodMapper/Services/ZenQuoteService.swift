@@ -22,22 +22,35 @@ enum QuoteAPIError: Error {
 }
 
 class ZenQuoteService {
-    func fetchRandom() async throws -> Quote {
-        guard let url = URL(string: "https://zenquotes.io/api/random") else {
-            throw QuoteAPIError.invalidURL
+    
+    // Default quote to display when API fails
+    private let defaultQuote = Quote(
+        id: "default",
+        text: "Something went wrong, but that's okay. Every moment is a chance to start fresh.",
+        author: "MoodMapper"
+    )
+    
+    func fetchRandom() async -> Quote {
+        do {
+            guard let url = URL(string: "https://zenquotes.io/api/random") else {
+                return defaultQuote
+            }
+            let (data, resp) = try await URLSession.shared.data(from: url)
+            guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+                return defaultQuote
+            }
+            struct ZQ: Codable {
+                let q: String
+                let a: String
+            }
+            let arr = try JSONDecoder().decode([ZQ].self, from: data)
+            guard let first = arr.first else {
+                return defaultQuote
+            }
+            return Quote(id: UUID().uuidString, text: first.q, author: first.a)
+        } catch {
+            // Return default quote on any error
+            return defaultQuote
         }
-        let (data, resp) = try await URLSession.shared.data(from: url)
-        guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw QuoteAPIError.badResponse
-        }
-        struct ZQ: Codable {
-            let q: String
-            let a: String
-        }
-        let arr = try JSONDecoder().decode([ZQ].self, from: data)
-        guard let first = arr.first else {
-            throw QuoteAPIError.badResponse
-        }
-        return Quote(id: UUID().uuidString, text: first.q, author: first.a)
     }
 }
