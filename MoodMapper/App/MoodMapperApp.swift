@@ -15,13 +15,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
   func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
       FirebaseApp.configure()
       FirebaseConfiguration.shared.setLoggerLevel(.debug)
-      Auth.auth().signInAnonymously { result, error in
-          if let error = error {
-              print("Anon auth failed:", error)
-          } else {
-              print("Anon auth UID:", result?.user.uid ?? "unknown")
-          }
-      }
+      // No longer signing in anonymously - user must authenticate with email/password
 
       return true
   }
@@ -34,6 +28,7 @@ struct MoodMapperApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
     @StateObject private var locationService = LocationService()
+    @StateObject private var authService = AuthenticationService()
     @StateObject private var syncService: FirestoreSyncService
     
     init() {
@@ -43,14 +38,27 @@ struct MoodMapperApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                .environmentObject(locationService)
-                .environmentObject(syncService)
-                .onAppear {
-                    locationService.requestWhenInUseAuthorization()
-                    syncService.start()
+            Group {
+                if authService.isLoading {
+                    LoadingView()
+                } else if authService.isAuthenticated && !authService.isAnonymous {
+                    ContentView()
+                        .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                        .environmentObject(locationService)
+                        .environmentObject(authService)
+                        .environmentObject(syncService)
+                        .onAppear {
+                            locationService.requestWhenInUseAuthorization()
+                            syncService.start()
+                        }
+                } else {
+                    AuthenticationView {
+                        // Authentication successful - sync service will be enabled
+                        syncService.start()
+                    }
+                    .environmentObject(authService)
                 }
+            }
         }
     }
 }

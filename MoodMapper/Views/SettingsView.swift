@@ -7,10 +7,12 @@
 
 import SwiftUI
 import CoreData
+import FirebaseAuth
 
 struct SettingsView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var syncService: FirestoreSyncService
+    @EnvironmentObject private var authService: AuthenticationService
     @State private var showingAlert = false
     @State private var alertTitle = ""
     @State private var alertMessage = ""
@@ -22,25 +24,72 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             List {
+                // Authentication Section
+                Section("Account") {
+                    HStack {
+                        Image(systemName: authService.isAuthenticated ? "person.circle.fill" : "person.circle")
+                            .foregroundColor(authService.isAuthenticated ? .green : .red)
+                        VStack(alignment: .leading) {
+                            Text(authService.isAuthenticated ? "Signed In" : "Not Signed In")
+                                .font(.headline)
+                            if let user = authService.currentUser {
+                                Text(user.email ?? "Unknown email")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        Spacer()
+                    }
+                    
+                    if authService.isAuthenticated {
+                        Button("Sign Out") {
+                            showAlert(
+                                title: "Sign Out",
+                                message: "Are you sure you want to sign out?",
+                                action: {
+                                    authService.signOut()
+                                }
+                            )
+                        }
+                        .foregroundColor(.red)
+                    }
+                }
+                
                 // Sync Status Section
                 Section("Sync Status") {
                     HStack {
                         Image(systemName: syncService.isEnabled ? "checkmark.circle.fill" : "xmark.circle.fill")
                             .foregroundColor(syncService.isEnabled ? .green : .red)
-                        Text("Sync is \(syncService.isEnabled ? "Enabled" : "Disabled")")
-                            .font(.headline)
+                        VStack(alignment: .leading) {
+                            Text("Sync is \(syncService.isEnabled ? "Enabled" : "Disabled")")
+                                .font(.headline)
+                            if !authService.canSync {
+                                Text("Sign in with email/password to enable sync")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            } else if syncService.isEnabled {
+                                if let lastSync = syncService.lastSyncDate {
+                                    Text("Last sync: \(lastSync, formatter: dateFormatter)")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        }
+                        Spacer()
                     }
                     
-                    if !syncService.isEnabled {
-                        Button("Enable Sync") {
-                            syncService.enableSync()
+                    if authService.canSync {
+                        if !syncService.isEnabled {
+                            Button("Enable Sync") {
+                                syncService.enableSync()
+                            }
+                            .foregroundColor(.blue)
+                        } else {
+                            Button("Disable Sync") {
+                                syncService.disableSync()
+                            }
+                            .foregroundColor(.orange)
                         }
-                        .foregroundColor(.blue)
-                    } else {
-                        Button("Disable Sync") {
-                            syncService.disableSync()
-                        }
-                        .foregroundColor(.orange)
                     }
                 }
                 
@@ -202,6 +251,13 @@ struct SettingsView: View {
     
     // MARK: - Helper Methods
     
+    private var dateFormatter: DateFormatter {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .short
+        formatter.timeStyle = .short
+        return formatter
+    }
+    
     private func showAlert(title: String, message: String, action: @escaping () -> Void) {
         alertTitle = title
         alertMessage = message
@@ -268,4 +324,5 @@ struct DataInfoRow: View {
     SettingsView()
         .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
         .environmentObject(FirestoreSyncService(context: PersistenceController.preview.container.viewContext))
+        .environmentObject(AuthenticationService())
 }

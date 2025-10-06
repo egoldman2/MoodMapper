@@ -22,6 +22,8 @@ final class FirestoreSyncService: ObservableObject {
     @Published var isEnabled = true
     @Published var dataCleared = false
     @Published var firebaseEntryCount = 0
+    @Published var isSynced = false
+    @Published var lastSyncDate: Date?
     
     init(context: NSManagedObjectContext) {
         self.context = context
@@ -32,9 +34,17 @@ final class FirestoreSyncService: ObservableObject {
         
         // Test Firebase connection first
         if let user = Auth.auth().currentUser {
-            print("✅ User already authenticated: \(user.uid)")
+            if user.isAnonymous {
+                print("❌ Anonymous user detected - sync disabled")
+                isEnabled = false
+                return
+            } else {
+                print("✅ User already authenticated: \(user.uid)")
+            }
         } else {
             print("❌ No authenticated user - sync will not work")
+            isEnabled = false
+            return
         }
         
         // 1) Observe local changes
@@ -47,10 +57,13 @@ final class FirestoreSyncService: ObservableObject {
             self?.pushLocalChanges(note: note)
         }
         
-        // 2) Listen for remote changes
+        // 2) Perform initial sync
+        performInitialSync()
+        
+        // 3) Listen for remote changes
         attachRemoteListener()
         
-        // 3) Fetch initial Firebase count
+        // 4) Fetch initial Firebase count
         fetchFirebaseEntryCount()
     }
     
@@ -62,6 +75,8 @@ final class FirestoreSyncService: ObservableObject {
     func enableSync() {
         print("✅ Enabling sync")
         isEnabled = true
+        // Trigger sync status update
+        updateSyncStatus()
     }
     
     /// Triggers a data refresh across all views
@@ -71,6 +86,9 @@ final class FirestoreSyncService: ObservableObject {
             self.context.refreshAllObjects()
             self.context.processPendingChanges()
             
+            // Update sync status
+            self.updateSyncStatus()
+            
             // Then trigger UI refresh
             self.dataCleared.toggle()
             // Reset after a brief moment to allow views to react
@@ -78,6 +96,118 @@ final class FirestoreSyncService: ObservableObject {
                 self.dataCleared.toggle()
             }
         }
+    }
+    
+    // MARK: - Initial Sync Methods
+    
+    private func performInitialSync() {
+        print("🔄 Performing initial sync...")
+        guard let col = userCollection() else {
+            print("❌ No user collection available for initial sync")
+            return
+        }
+        
+        // Check if we have a lastPullKey - if not, this is first time sync
+        let hasLastPull = UserDefaults.standard.object(forKey: lastPullKey) != nil
+        
+        if !hasLastPull {
+            print("🔄 First time sync - pulling all Firebase data")
+            pullAllFirebaseData(from: col)
+        } else {
+            print("🔄 Incremental sync - pulling changes since last sync")
+            // The remote listener will handle incremental changes
+            updateSyncStatus()
+        }
+    }
+    
+    private func pullAllFirebaseData(from col: CollectionReference) {
+        col.getDocuments { [weak self] snapshot, error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                print("❌ Failed to fetch Firebase data: \(error)")
+                DispatchQueue.main.async {
+                    self.isSynced = false
+                }
+                return
+            }
+            
+            guard let snapshot = snapshot else {
+                print("❌ No snapshot received")
+                DispatchQueue.main.async {
+                    self.isSynced = false
+                }
+                return
+            }
+            
+            print("📥 Fetched \(snapshot.documents.count) documents from Firebase")
+            
+            self.context.perform {
+                // Import all Firebase documents
+                for document in snapshot.documents {
+                    let data = document.data()
+                    self.createLocalEntry(from: data)
+                }
+                
+                // Save context
+                do {
+                    try self.context.save()
+                    print("✅ Successfully synced Firebase data to local")
+                    
+                    // Update lastPullKey
+                    UserDefaults.standard.set(Date(), forKey: self.lastPullKey)
+                    
+                    DispatchQueue.main.async {
+                        self.isSynced = true
+                        self.lastSyncDate = Date()
+                        self.firebaseEntryCount = snapshot.documents.count
+                    }
+                } catch {
+                    print("❌ Failed to save context: \(error)")
+                    DispatchQueue.main.async {
+                        self.isSynced = false
+                    }
+                }
+            }
+        }
+    }
+    
+    private func updateSyncStatus() {
+        // Compare local and Firebase entry counts
+        let localCount = getLocalEntryCount()
+        let firebaseCount = firebaseEntryCount
+        
+        DispatchQueue.main.async {
+            // Data is synced if:
+            // 1. Both local and Firebase have the same count (and count > 0)
+            // 2. Both are empty (count == 0)
+            // 3. We have a recent lastPullKey (within last 5 minutes)
+            let countsMatch = localCount == firebaseCount
+            let bothEmpty = localCount == 0 && firebaseCount == 0
+            let hasRecentSync = self.hasRecentSync()
+            
+            self.isSynced = (countsMatch && (localCount > 0 || bothEmpty)) || hasRecentSync
+            
+            if self.isSynced {
+                self.lastSyncDate = UserDefaults.standard.object(forKey: self.lastPullKey) as? Date
+            }
+            
+            print("🔄 Sync status update - Local: \(localCount), Firebase: \(firebaseCount), Synced: \(self.isSynced)")
+        }
+    }
+    
+    private func hasRecentSync() -> Bool {
+        guard let lastPull = UserDefaults.standard.object(forKey: lastPullKey) as? Date else {
+            return false
+        }
+        // Consider synced if last pull was within last 5 minutes
+        return Date().timeIntervalSince(lastPull) < 300 // 5 minutes
+    }
+    
+    private func getLocalEntryCount() -> Int {
+        let request = NSFetchRequest<MoodEntry>(entityName: "MoodEntry")
+        request.predicate = NSPredicate(format: "isSoftDeleted == NO OR isSoftDeleted == nil")
+        return (try? context.count(for: request)) ?? 0
     }
     
     // MARK: - Firebase Count Methods
@@ -93,12 +223,15 @@ final class FirestoreSyncService: ObservableObject {
                 if let error = error {
                     print("❌ Failed to fetch Firebase count: \(error)")
                     self?.firebaseEntryCount = 0
+                    self?.isSynced = false
                 } else if let snapshot = snapshot {
                     print("📊 Firebase entry count: \(snapshot.documents.count)")
                     self?.firebaseEntryCount = snapshot.documents.count
+                    self?.updateSyncStatus()
                 } else {
                     print("❌ No snapshot received for count")
                     self?.firebaseEntryCount = 0
+                    self?.isSynced = false
                 }
             }
         }
@@ -111,7 +244,13 @@ final class FirestoreSyncService: ObservableObject {
         
         // Check authentication
         if let user = Auth.auth().currentUser {
-            print("✅ User authenticated: \(user.uid)")
+            if user.isAnonymous {
+                print("❌ Anonymous user - sync not allowed")
+                completion(false, "Anonymous users cannot sync. Please sign in with email/password.")
+                return
+            } else {
+                print("✅ User authenticated: \(user.uid)")
+            }
         } else {
             print("❌ No authenticated user")
             completion(false, "No authenticated user")
@@ -293,12 +432,19 @@ final class FirestoreSyncService: ObservableObject {
     // MARK: - Helpers
     
     private func userCollection() -> CollectionReference? {
-        guard let uid = Auth.auth().currentUser?.uid else { 
+        guard let user = Auth.auth().currentUser else { 
             print("❌ No authenticated user - sync will not work")
             return nil 
         }
-        print("✅ User authenticated with UID: \(uid)")
-        return db.collection("users").document(uid).collection("moodEntries")
+        
+        // Don't allow sync for anonymous users
+        if user.isAnonymous {
+            print("❌ Anonymous user detected - sync disabled")
+            return nil
+        }
+        
+        print("✅ User authenticated with UID: \(user.uid)")
+        return db.collection("users").document(user.uid).collection("moodEntries")
     }
     
     private func attachRemoteListener() {
@@ -400,11 +546,17 @@ final class FirestoreSyncService: ObservableObject {
             "lastModified": Timestamp(date: lastModified)
         ]
         
-        col.document(id.uuidString).setData(data, merge: true) { error in
+        col.document(id.uuidString).setData(data, merge: true) { [weak self] error in
             if let error = error {
                 print("❌ Failed to push entry \(id.uuidString): \(error)")
+                DispatchQueue.main.async {
+                    self?.isSynced = false
+                }
             } else {
                 print("✅ Successfully pushed entry \(id.uuidString)")
+                DispatchQueue.main.async {
+                    self?.updateSyncStatus()
+                }
             }
         }
     }
@@ -437,9 +589,10 @@ final class FirestoreSyncService: ObservableObject {
             try? self.context.save()
             self.isApplyingRemoteChanges = false
             
-            // Update Firebase count after processing changes
+            // Update Firebase count and sync status after processing changes
             DispatchQueue.main.async {
                 self.firebaseEntryCount = snap.documents.count
+                self.updateSyncStatus()
             }
         }
     }
