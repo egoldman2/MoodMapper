@@ -5,26 +5,66 @@ A comprehensive iOS mood tracking application that allows users to log their emo
 ## Features
 
 ### Core Functionality
-- **Mood Logging**: Record daily mood entries with 5-point scale (1-5)
-- **Location Integration**: Automatically capture and store location data with each entry
-- **Interactive Map**: Visualize mood entries on a map with color-coded markers
-- **Cloud Synchronization**: Real-time sync across devices using Firebase Firestore
-- **User Authentication**: Secure email/password authentication system
-- **Data Persistence**: Local Core Data storage with CloudKit integration
 
-### User Interface
-- **Modern SwiftUI Design**: Clean, intuitive interface with glassmorphism effects
-- **Tabbed Navigation**: Easy access to map view, home view, and settings
-- **Mood Visualization**: Emoji-based mood representation with color coding
-- **Quote Integration**: Inspirational quotes displayed on the map
-- **Settings Management**: User preferences and account management
+#### Mood Tracking System
+- **5-Point Mood Scale**: Record emotional state from 1 (sad) to 5 (euphoric)
+- **Emoji Visualization**: Intuitive emoji representation (😞 😕 😐 🙂 😄)
+- **Color-Coded System**: Visual color coding for quick mood identification
+- **Timestamp Tracking**: Automatic date and time recording for each entry
+- **Custom Notes**: Optional text notes to capture mood context and details
+- **Mood History**: Complete chronological record of emotional patterns
+
+#### Location Intelligence
+- **Automatic GPS Capture**: Seamless location detection for each mood entry
+- **Place Name Resolution**: Automatic conversion of coordinates to readable place names
+- **Location-Based Insights**: Understand how different locations affect your mood
+
+#### Interactive Map Visualization
+- **Real-Time Map Display**: Live map showing all mood entries with custom markers
+- **Color-Coded Markers**: Visual mood representation directly on the map
+- **Interactive Markers**: Tap markers to view detailed mood information
+- **Zoom and Pan Controls**: Full map navigation with gesture support
+- **User Location Tracking**: Current location display
+
+### User Interface & Experience
+
+#### Modern Design System
+- **SwiftUI Architecture**: Built with Apple's latest UI framework
+- **Glassmorphism Effects**: Modern translucent design elements
+- **Dark/Light Mode Support**: Automatic adaptation to system appearance
+- **Smooth Animations**: Fluid transitions and micro-interactions
+
+#### Navigation & Usability
+- **Tab-Based Navigation**: Intuitive bottom tab bar for easy access
+- **Swipe Gestures**: Natural swipe interactions for common actions
+- **Quick Actions**: Fast mood entry with minimal taps
+
+### Cloud & Synchronization
+
+#### Real-Time Sync Engine
+- **Bidirectional Synchronization**: Seamless data sync between devices
+- **Conflict Resolution**: Intelligent merging of conflicting data
+- **Offline Queue**: Automatic sync when connection is restored
+- **Sync Status Indicators**: Clear visual feedback on sync status
+
+#### Data Security & Privacy
+- **End-to-End Encryption**: Secure data transmission and storage
+- **User Authentication**: Secure email/password authentication
+- **Secure Backup**: Encrypted cloud backup
 
 ### Technical Features
-- **Real-time Sync**: Bidirectional synchronization between local and cloud data
-- **Offline Support**: Full functionality without internet connection
-- **Error Handling**: Comprehensive error management and user feedback
-- **Location Services**: GPS integration with permission handling
-- **Data Validation**: Input validation and data integrity checks
+
+#### Performance & Reliability
+- **Optimized Core Data**: Efficient local database
+- **Data Integrity**: Comprehensive data validation
+
+#### Error Handling & Recovery
+- **Graceful Degradation**: App continues to function during network issues
+- **Automatic Retry**: Smart retry mechanisms for failed operations
+- **User Feedback**: Clear error messages and recovery suggestions
+- **Data Recovery**: Automatic data recovery from sync conflicts
+- **Offline Mode**: Full functionality without internet connection
+- **Debug Logging**: Comprehensive logging for troubleshooting
 
 ## Setup Instructions
 
