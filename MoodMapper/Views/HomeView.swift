@@ -38,6 +38,16 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Mood Mapper")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        syncService.overwriteLocalWithFirebase()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
             .onChange(of: syncService.dataCleared) { _, _ in
                 // Trigger view refresh when data is cleared
                 viewContext.refreshAllObjects()
@@ -51,8 +61,7 @@ struct HomeView: View {
             do {
                 try viewContext.save()
             } catch {
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+                Utils.handleCoreDataSaveError(error, context: viewContext, operation: "delete mood entries")
             }
         }
     }
@@ -67,6 +76,21 @@ struct HomeView: View {
             Text("Tap the plus to add your first mood.")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
+            
+            Button {
+                syncService.overwriteLocalWithFirebase()
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.clockwise")
+                    Text("Sync from Cloud")
+                }
+                .foregroundColor(.blue)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Color.blue.opacity(0.1))
+                .cornerRadius(8)
+            }
+            .padding(.top, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .multilineTextAlignment(.center)

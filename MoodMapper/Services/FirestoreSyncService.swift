@@ -18,6 +18,7 @@ final class FirestoreSyncService: ObservableObject {
     private var listener: ListenerRegistration?
     private let lastPullKey = "sync.lastPull"
     private var isApplyingRemoteChanges = false
+    private var lastLocalChangeTime: Date = Date.distantPast
     
     @Published var isEnabled = true
     @Published var dataCleared = false
@@ -117,6 +118,8 @@ final class FirestoreSyncService: ObservableObject {
             print("🔄 Incremental sync - pulling changes since last sync")
             // The remote listener will handle incremental changes
             updateSyncStatus()
+
+            fetchFirebaseEntryCount()
         }
     }
     
@@ -336,6 +339,11 @@ final class FirestoreSyncService: ObservableObject {
                 do {
                     try self.context.save()
                     print("✅ Successfully overwrote local data with Firebase")
+
+                    // Trigger UI refresh after successful data import
+                    DispatchQueue.main.async {
+                        self.triggerDataRefresh()
+                    }
                 } catch {
                     print("❌ Failed to save context: \(error)")
                 }
@@ -475,6 +483,9 @@ final class FirestoreSyncService: ObservableObject {
             print("🔍 Notification object is not a context")
         }
         
+        // Track when we make local changes
+        lastLocalChangeTime = Date()
+        
         // Don't push changes if sync is disabled
         guard isEnabled else { 
             print("🚫 Sync disabled")
@@ -562,6 +573,20 @@ final class FirestoreSyncService: ObservableObject {
     }
     
     private func applyRemoteChanges(snap: QuerySnapshot) {
+        // Skip processing if we're already applying remote changes to prevent circular sync
+        guard !isApplyingRemoteChanges else {
+            print("🚫 Skipping remote changes - already processing")
+            return
+        }
+        
+        // Skip processing if we just made local changes (within last 3 seconds)
+        // This prevents circular sync when local deletions trigger remote changes
+        let timeSinceLastLocalChange = Date().timeIntervalSince(lastLocalChangeTime)
+        if timeSinceLastLocalChange < 3.0 {
+            print("🚫 Skipping remote changes - too soon after local change (\(timeSinceLastLocalChange)s ago)")
+            return
+        }
+        
         isApplyingRemoteChanges = true
         context.perform {
             for change in snap.documentChanges {
@@ -610,13 +635,15 @@ final class FirestoreSyncService: ObservableObject {
     // MARK: - Override Helper Methods
     
     private func clearAllLocalEntries() {
-        let request = NSFetchRequest<NSFetchRequestResult>(entityName: "MoodEntry")
-        let deleteRequest = NSBatchDeleteRequest(fetchRequest: request)
+        let request = NSFetchRequest<MoodEntry>(entityName: "MoodEntry")
         
         do {
-            try context.execute(deleteRequest)
+            let entries = try context.fetch(request)
+            for entry in entries {
+                context.delete(entry)
+            }
             try context.save()
-            print("🗑️ Cleared all local MoodEntry objects")
+            print("🗑️ Cleared \(entries.count) local MoodEntry objects")
         } catch {
             print("❌ Failed to clear local entries: \(error)")
         }
