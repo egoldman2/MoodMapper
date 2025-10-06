@@ -10,12 +10,15 @@ import CoreData
 
 struct ContentView: View {
     @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject private var syncService: FirestoreSyncService
 
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \MoodEntry.id, ascending: true)],
         animation: .default)
     private var items: FetchedResults<MoodEntry>
     @State private var showHomeOverlay = false
+    @State private var showSettings = false
+    @State private var showAdd = false
 
     var body: some View {
         NavigationStack {
@@ -34,12 +37,61 @@ struct ContentView: View {
             .toolbar {
                 ToolbarItem(placement: .bottomBar) {
                     Button {
+                        withAnimation(.snappy) { showSettings.toggle() }
+                    } label: {
+                        Image(systemName: "gearshape.fill")
+                            .imageScale(.large)
+                    }
+                }
+                
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
                         withAnimation(.snappy) { showHomeOverlay.toggle() }
                     } label: {
                         Image(systemName: showHomeOverlay ? "house.fill" : "house")
                         .imageScale(.large)
                     }
                 }
+                
+                ToolbarItem(placement: .bottomBar) {
+                    Button {
+                        withAnimation(.snappy) { showAdd.toggle() }
+                    } label: {
+                        Image(systemName: "plus")
+                            .imageScale(.large)
+                    }
+                }
+                
+                
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsView()
+            }
+            .sheet(isPresented: $showAdd) {
+                AddEntry { new in
+                    let item = MoodEntry(context: viewContext)
+                    item.id = UUID()
+                    item.score = Int16(new.mood)
+                    item.timestamp = new.date
+                    item.note = new.note
+                    item.placename = new.locationName
+                    // Record location only if attributes exist in the model
+                    let attributes = item.entity.attributesByName
+                    if attributes.keys.contains("latitude") {
+                        item.setValue(new.latitude, forKey: "latitude")
+                    }
+                    if attributes.keys.contains("longitude") {
+                        item.setValue(new.longitude, forKey: "longitude")
+                    }
+                    if attributes.keys.contains("placename") {
+                        item.setValue(new.locationName, forKey: "placename")
+                    }
+                    try? viewContext.save()
+                }
+            }
+            .onChange(of: syncService.dataCleared) { _, _ in
+                // Trigger view refresh when data is cleared
+                viewContext.refreshAllObjects()
             }
         }
     }
@@ -53,10 +105,7 @@ struct ContentView: View {
             do {
                 try viewContext.save()
             } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+                print("Failed to save context: \(error)")
             }
         }
     }

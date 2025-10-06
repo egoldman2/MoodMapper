@@ -13,6 +13,7 @@ import CoreLocation
 struct MapView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @EnvironmentObject private var locationService: LocationService
+    @EnvironmentObject private var syncService: FirestoreSyncService
 
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \MoodEntry.timestamp, ascending: false)],
@@ -28,7 +29,7 @@ struct MapView: View {
             
             Map(position: $position) {
                 UserAnnotation()
-                ForEach(entries) { entry in
+                ForEach(entries, id: \.objectID) { entry in
                     if let coord = coordinate(for: entry) {
                         Annotation("", coordinate: coord) {
                             Button {
@@ -69,6 +70,12 @@ struct MapView: View {
             }
         }
         .animation(.snappy, value: selectedEntry)
+        .onChange(of: entries.count) { _, newCount in
+            // Clear selected entry if entries become empty
+            if newCount == 0 {
+                selectedEntry = nil
+            }
+        }
     }
 
     private func setInitialCamera() {
@@ -96,4 +103,5 @@ struct MapView: View {
 #Preview {
     MapView()
         .environmentObject(LocationService())
+        .environmentObject(FirestoreSyncService(context: PersistenceController.preview.container.viewContext))
 }

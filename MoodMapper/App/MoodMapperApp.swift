@@ -46,6 +46,7 @@ struct MoodMapperApp: App {
             ContentView()
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
                 .environmentObject(locationService)
+                .environmentObject(syncService)
                 .onAppear {
                     locationService.requestWhenInUseAuthorization()
                     syncService.start()

@@ -11,12 +11,12 @@ import CoreData
 struct HomeView: View {
     
     @Environment(\.managedObjectContext) private var viewContext
+    @EnvironmentObject private var syncService: FirestoreSyncService
     @FetchRequest(
         sortDescriptors: [NSSortDescriptor(keyPath: \MoodEntry.timestamp, ascending: false)],
         animation: .default
     )
     private var items: FetchedResults<MoodEntry>
-    @State private var showingAdd = false
 
     var body: some View {
         NavigationStack {
@@ -27,7 +27,7 @@ struct HomeView: View {
                     List {
                         ForEach(items, id: \.objectID) { item in
                             NavigationLink {
-                                MoodEntryDetailView(entry: item)
+                                MoodEntryMapView(entry: item)
                             } label : {
                                 EntryRow(item: item)
                             }
@@ -38,37 +38,9 @@ struct HomeView: View {
                 }
             }
             .navigationTitle("Mood Mapper")
-            .toolbar {
-                ToolbarItem(placement: .bottomBar) {
-                    Button {
-                        showingAdd = true
-                    } label: {
-                        Image(systemName: "plus")
-                            .imageScale(.large)
-                    }
-                }
-            }
-            .sheet(isPresented: $showingAdd) {
-                AddEntry { new in
-                    let item = MoodEntry(context: viewContext)
-                    item.id = UUID()
-                    item.score = Int16(new.mood)
-                    item.timestamp = new.date
-                    item.note = new.note
-                    item.placename = new.locationName
-                    // Record location only if attributes exist in the model
-                    let attributes = item.entity.attributesByName
-                    if attributes.keys.contains("latitude") {
-                        item.setValue(new.latitude, forKey: "latitude")
-                    }
-                    if attributes.keys.contains("longitude") {
-                        item.setValue(new.longitude, forKey: "longitude")
-                    }
-                    if attributes.keys.contains("placename") {
-                        item.setValue(new.locationName, forKey: "placename")
-                    }
-                    try? viewContext.save()
-                }
+            .onChange(of: syncService.dataCleared) { _, _ in
+                // Trigger view refresh when data is cleared
+                viewContext.refreshAllObjects()
             }
         }
     }
