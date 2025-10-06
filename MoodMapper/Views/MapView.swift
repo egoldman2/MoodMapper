@@ -48,6 +48,11 @@ struct MapView: View {
             }
             .task { setInitialCamera() }
             
+            VStack {
+                QuoteBubbleView()
+                    .padding(.top, 40)
+            }
+            
             
             if let entry = selectedEntry {
                 VStack {

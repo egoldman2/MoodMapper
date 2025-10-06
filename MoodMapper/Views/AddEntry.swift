@@ -80,6 +80,7 @@ struct AddEntry: View {
                                 locationService.requestLocation()
                             }
                         }
+                        .disabled(true)
                     if includeLocation {
                         if let coord = locationService.coordinate {
                             Text(String(format: "Lat: %.4f, Lon: %.4f", coord.latitude, coord.longitude))

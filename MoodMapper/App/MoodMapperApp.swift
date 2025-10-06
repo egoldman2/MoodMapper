@@ -42,15 +42,21 @@ struct MoodMapperApp: App {
                 if authService.isLoading {
                     LoadingView()
                 } else if authService.isAuthenticated && !authService.isAnonymous {
-                    ContentView()
-                        .environment(\.managedObjectContext, persistenceController.container.viewContext)
-                        .environmentObject(locationService)
-                        .environmentObject(authService)
-                        .environmentObject(syncService)
-                        .onAppear {
-                            locationService.requestWhenInUseAuthorization()
-                            syncService.start()
-                        }
+                    // Check location permission before showing main content
+                    if locationService.authorizationStatus == .authorizedWhenInUse || 
+                       locationService.authorizationStatus == .authorizedAlways {
+                        ContentView()
+                            .environment(\.managedObjectContext, persistenceController.container.viewContext)
+                            .environmentObject(locationService)
+                            .environmentObject(authService)
+                            .environmentObject(syncService)
+                            .onAppear {
+                                syncService.start()
+                            }
+                    } else {
+                        LocationPermissionView()
+                            .environmentObject(locationService)
+                    }
                 } else {
                     AuthenticationView {
                         // Authentication successful - sync service will be enabled

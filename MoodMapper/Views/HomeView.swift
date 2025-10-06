@@ -96,7 +96,7 @@ private struct EntryRow: View {
                         .font(.body)
                         .lineLimit(2)
                 } else {
-                    Text("No notes")
+                    Text("Feeling " + Utils.feeling(for: item.score))
                         .font(.body)
                         .foregroundStyle(.secondary)
                         .italic()
