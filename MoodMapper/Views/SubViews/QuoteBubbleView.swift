@@ -77,21 +77,14 @@ struct QuoteBubbleView: View {
     
     @MainActor
     private func loadQuote() async {
-        do {
-            let quote = try await ZenQuoteService().fetchRandom()
-            self.quoteText = quote.text
-            self.quoteAuthor = quote.author
-            self.isExpanded = false
-            self.quoteLoadError = nil
-        } catch {
-            self.quoteText = ""
-            self.quoteAuthor = nil
-            self.quoteLoadError = error.localizedDescription
-        }
+        let quote = await ZenQuoteService().fetchRandom()
+        self.quoteText = quote.text
+        self.quoteAuthor = quote.author
+        self.isExpanded = false
+        self.quoteLoadError = nil
     }
 }
 
 #Preview {
     QuoteBubbleView()
 }
-
